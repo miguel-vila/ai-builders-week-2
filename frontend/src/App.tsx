@@ -10,8 +10,22 @@ interface ChatResponse {
   };
 }
 
+interface ItineraryActivity {
+  activity: string;
+  durationInHours: number;
+}
+
+interface ItineraryDay {
+  day: string;
+  morning: ItineraryActivity[];
+  afternoon: ItineraryActivity[];
+  evening: ItineraryActivity[];
+}
+
 interface ItineraryResponse {
-  itinerary: string;
+  itinerary: {
+    days: ItineraryDay[];
+  };
   city: string;
   dates: string;
   preferences?: string;
@@ -68,7 +82,7 @@ function App() {
     } catch (error) {
       console.error('Itinerary error:', error);
       setItineraryResponse({
-        itinerary: 'Error: Failed to generate itinerary',
+        itinerary: { days: [] },
         city,
         dates,
         preferences
@@ -186,7 +200,42 @@ function App() {
               <em>Dates: {itineraryResponse.dates}</em>\n
               {itineraryResponse.preferences && (
                 <em>Preferences: {itineraryResponse.preferences}</em>
-              )}\n\n{itineraryResponse.itinerary}
+              )}\n\n              {itineraryResponse.itinerary.days.length === 0 ? (
+                'Error: Failed to generate itinerary'
+              ) : (
+                itineraryResponse.itinerary.days.map((day, index) => (
+                  <div key={index} style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid #e1e5e9', borderRadius: '8px' }}>
+                    <h3 style={{ color: '#667eea', marginBottom: '1rem' }}>{day.day}</h3>
+                    
+                    <div style={{ marginBottom: '1rem' }}>
+                      <h4 style={{ color: '#333', marginBottom: '0.5rem' }}>🌅 Morning</h4>
+                      {day.morning.map((activity, idx) => (
+                        <div key={idx} style={{ marginLeft: '1rem', marginBottom: '0.5rem' }}>
+                          • {activity.activity} <em>({activity.durationInHours}h)</em>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div style={{ marginBottom: '1rem' }}>
+                      <h4 style={{ color: '#333', marginBottom: '0.5rem' }}>☀️ Afternoon</h4>
+                      {day.afternoon.map((activity, idx) => (
+                        <div key={idx} style={{ marginLeft: '1rem', marginBottom: '0.5rem' }}>
+                          • {activity.activity} <em>({activity.durationInHours}h)</em>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div>
+                      <h4 style={{ color: '#333', marginBottom: '0.5rem' }}>🌙 Evening</h4>
+                      {day.evening.map((activity, idx) => (
+                        <div key={idx} style={{ marginLeft: '1rem', marginBottom: '0.5rem' }}>
+                          • {activity.activity} <em>({activity.durationInHours}h)</em>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>
