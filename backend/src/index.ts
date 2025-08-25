@@ -21,11 +21,6 @@ app.use(cors());
 app.use(express.json());
 
 // Zod schemas for validation
-const MessageSchema = z.object({
-  message: z.string().min(1, 'Message cannot be empty'),
-  model: z.string().optional().default('gpt-3.5-turbo')
-});
-
 const ItineraryInputSchema = z.object({
   city: z.string().min(1, 'City is required'),
   dates: z.string().min(1, 'Dates are required'),
@@ -52,30 +47,6 @@ z.object({
 // Routes
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
-});
-
-app.post('/api/chat', async (req, res) => {
-  try {
-    const { message, model } = MessageSchema.parse(req.body);
-    
-    const completion = await openai.chat.completions.create({
-      messages: [{ role: 'user', content: message }],
-      model: model,
-      max_tokens: 500
-    });
-
-    res.json({
-      response: completion.choices[0]?.message?.content || 'No response generated',
-      usage: completion.usage
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation error', details: error.errors });
-    }
-    
-    console.error('OpenAI API error:', error);
-    res.status(500).json({ error: 'Failed to generate response' });
-  }
 });
 
 app.post('/api/itinerary', async (req, res) => {

@@ -1,15 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-interface ChatResponse {
-  response: string;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-}
-
 interface ItineraryActivity {
   activity: string;
   durationInHours: number;
@@ -32,38 +23,13 @@ interface ItineraryResponse {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'chat' | 'itinerary'>('chat');
   const [loading, setLoading] = useState(false);
-  
-  // Chat state
-  const [message, setMessage] = useState('');
-  const [chatResponse, setChatResponse] = useState<ChatResponse | null>(null);
   
   // Itinerary state
   const [city, setCity] = useState('');
   const [dates, setDates] = useState('');
   const [preferences, setPreferences] = useState('');
   const [itineraryResponse, setItineraryResponse] = useState<ItineraryResponse | null>(null);
-
-  const handleChat = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim()) return;
-    
-    setLoading(true);
-    setChatResponse(null);
-    
-    try {
-      const response = await axios.post('/api/chat', {
-        message: message.trim()
-      });
-      setChatResponse(response.data);
-    } catch (error) {
-      console.error('Chat error:', error);
-      setChatResponse({ response: 'Error: Failed to get response from AI' });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleItinerary = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,58 +64,7 @@ function App() {
         AI Builders Project
       </h1>
       
-      <div className="tabs">
-        <button 
-          className={`tab ${activeTab === 'chat' ? 'active' : ''}`}
-          onClick={() => setActiveTab('chat')}
-        >
-          Chat with AI
-        </button>
-        <button 
-          className={`tab ${activeTab === 'itinerary' ? 'active' : ''}`}
-          onClick={() => setActiveTab('itinerary')}
-        >
-          Generate Itinerary
-        </button>
-      </div>
-
-      {activeTab === 'chat' && (
-        <div className="card">
-          <h2 style={{ marginBottom: '1.5rem', color: '#333' }}>Chat with AI</h2>
-          <form onSubmit={handleChat}>
-            <div className="input-group">
-              <label htmlFor="message">Your Message</label>
-              <textarea
-                id="message"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Ask me anything..."
-                rows={4}
-                required
-              />
-            </div>
-            <button type="submit" disabled={loading || !message.trim()}>
-              {loading ? 'Thinking...' : 'Send Message'}
-            </button>
-          </form>
-          
-          {loading && <div className="loading">AI is thinking...</div>}
-          
-          {chatResponse && (
-            <div className="response">
-              <strong>AI Response:</strong>\n\n{chatResponse.response}
-              {chatResponse.usage && (
-                <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#666' }}>
-                  Tokens used: {chatResponse.usage.total_tokens} (prompt: {chatResponse.usage.prompt_tokens}, completion: {chatResponse.usage.completion_tokens})
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'itinerary' && (
-        <div className="card">
+      <div className="card">
           <h2 style={{ marginBottom: '1.5rem', color: '#333' }}>Generate Travel Itinerary</h2>
           <form onSubmit={handleItinerary}>
             <div className="input-group">
@@ -239,7 +154,6 @@ function App() {
             </div>
           )}
         </div>
-      )}
     </div>
   );
 }
