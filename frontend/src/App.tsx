@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { render } from "react-dom";
 
 interface ItineraryActivity {
   activity: string;
@@ -24,12 +23,19 @@ interface ItineraryResponse {
   preferences?: string;
 }
 
+function describeActivity(activity: ItineraryActivity) {
+  if(activity.activity.search(activity.location) === -1) {
+    return `${activity.activity} in ${activity.location}`;
+  }
+  return activity.activity;
+}
+
 function renderActivity(activity: ItineraryActivity, idx: number) {
   return (
     <div key={idx} style={{ marginLeft: "1rem", marginBottom: "0.5rem" }}>
-      • {activity.activity}{" "}
+      • {describeActivity(activity)}
       <em>
-        at {activity.location} ({activity.durationInHours}h)
+        ({activity.durationInHours}h)
       </em>
     </div>
   );
