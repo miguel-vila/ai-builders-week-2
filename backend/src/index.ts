@@ -28,7 +28,8 @@ const ItineraryInputSchema = z.object({
 });
 
 const ItineraryActivity = z.object({
-  activity: z.string(),
+  activity: z.string().min(1, 'Activity is required'),
+  location: z.string().min(1, 'Location is required'),
   durationInHours: z.number().min(1, 'Duration must be at least 1 hour')
 });
 
