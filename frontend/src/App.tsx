@@ -17,6 +17,8 @@ interface ItineraryDay {
 interface ItineraryResponse {
   itinerary: {
     days: ItineraryDay[];
+    arrivalCity: string;
+    departureCity: string;
   };
   city: string;
   dates: string;
@@ -70,12 +72,26 @@ function renderDay(day: ItineraryDay, idx: number) {
   );
 }
 
+function renderArrivalAndDeparture(itinerary: ItineraryResponse) {
+  if(itinerary.itinerary.arrivalCity !== itinerary.itinerary.departureCity ) {
+    return (
+      <div>
+        <em>
+          Arrival: {itinerary.itinerary.arrivalCity} - Departure: {itinerary.itinerary.departureCity}
+        </em>
+      </div>
+    );
+  }
+}
+
 function App() {
   const [loading, setLoading] = useState(false);
 
   // Itinerary state
   const [city, setCity] = useState("");
   const [dates, setDates] = useState("");
+  const [arrivalCity, setArrivalCity] = useState("");
+  const [departureCity, setDepartureCity] = useState("");
   const [preferences, setPreferences] = useState("");
   const [itineraryResponse, setItineraryResponse] =
     useState<ItineraryResponse | null>(null);
@@ -91,13 +107,15 @@ function App() {
       const response = await axios.post("/api/itinerary", {
         city: city.trim(),
         dates: dates.trim(),
+        arrivalCity: arrivalCity.trim(),
+        departureCity: departureCity.trim(),
         preferences: preferences.trim() || undefined,
       });
       setItineraryResponse(response.data);
     } catch (error) {
       console.error("Itinerary error:", error);
       setItineraryResponse({
-        itinerary: { days: [] },
+        itinerary: { days: [], arrivalCity: "", departureCity: "" },
         city,
         dates,
         preferences,
@@ -174,12 +192,14 @@ function App() {
 
         {itineraryResponse && (
           <div className="response">
-            <strong>Your Itinerary for {itineraryResponse.city}</strong>\n
-            <em>Dates: {itineraryResponse.dates}</em>\n
+            <strong>Your Itinerary for {itineraryResponse.city}</strong>
+            <div>
+              <em>Dates: {itineraryResponse.dates}</em>
+            </div>
+            {renderArrivalAndDeparture(itineraryResponse)}
             {itineraryResponse.preferences && (
               <em>Preferences: {itineraryResponse.preferences}</em>
             )}
-            \n\n{" "}
             {itineraryResponse.itinerary.days.length === 0
               ? "Error: Failed to generate itinerary"
               : itineraryResponse.itinerary.days.map((day, index) =>

@@ -1,9 +1,10 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import { z } from 'zod';
-import OpenAI from 'openai';
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import { z } from "zod";
+import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
+//import Amadeus, { ResponseError } from "amadeus-ts";
 
 // Load environment variables
 dotenv.config();
@@ -22,69 +23,66 @@ app.use(express.json());
 
 // Zod schemas for validation
 const ItineraryInputSchema = z.object({
-  city: z.string().min(1, 'City is required'),
-  dates: z.string().min(1, 'Dates are required'),
-  preferences: z.string().optional()
+  city: z.string().min(1, "City is required"),
+  dates: z.string().min(1, "Dates are required"),
+  preferences: z.string().optional(),
 });
 
 const ItineraryActivity = z.object({
-  activity: z.string().min(1, 'Activity is required'),
-  location: z.string().min(1, 'Location is required'),
-  durationInHours: z.number().min(1, 'Duration must be at least 1 hour')
+  activity: z.string().min(1, "Activity is required"),
+  location: z.string().min(1, "Location is required"),
+  durationInHours: z.number().min(1, "Duration must be at least 1 hour"),
 });
 
-const ItineraryOutputSchema = 
-z.object({
+const ItineraryOutputSchema = z.object({
+  arrivalCity: z.string().min(1, "Arrival city is required"),
+  departureCity: z.string().min(1, "Departure city is required"),
   days: z.array(
     z.object({
       day: z.string(),
       morning: z.array(ItineraryActivity),
       afternoon: z.array(ItineraryActivity),
-      evening: z.array(ItineraryActivity)
+      evening: z.array(ItineraryActivity),
     })
-  )
+  ),
 });
 
 // Routes
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+app.get("/api/health", (req, res) => {
+  res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-app.post('/api/itinerary', async (req, res) => {
+app.post("/api/itinerary", async (req, res) => {
   try {
     const { city, dates, preferences } = ItineraryInputSchema.parse(req.body);
-    
-    const prompt = `Create a travel itinerary for ${city} for ${dates}. ${preferences ? `Preferences: ${preferences}` : ''} Please provide a detailed day-by-day plan with activities, restaurants, and tips.`;
-    
+
+    const prompt = `Create a travel itinerary for ${city} for ${dates}. ${
+      preferences ? `Preferences: ${preferences}` : ""
+    } Please provide a detailed day-by-day plan with activities, restaurants, and tips.`;
+
     const response = await openai.responses.parse({
       model: "gpt-4o-2024-08-06",
-      input: [
-        {role: 'system', content: prompt }
-      ],
+      input: [{ role: "system", content: prompt }],
       text: {
-        format: zodTextFormat(ItineraryOutputSchema, "itinerary")
-      }
+        format: zodTextFormat(ItineraryOutputSchema, "itinerary"),
+      },
     });
-
-    response.output_parsed?.days.map(day => 
-      console.log(`Day: ${JSON.stringify(day)}`)
-    );
-
-    console.log('Itinerary response:', response.output_parsed);
 
     res.json({
       itinerary: response.output_parsed,
       city,
       dates,
-      preferences
+      preferences,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation error', details: error.errors });
+      return res
+        .status(400)
+        .json({ error: "Validation error", details: error.errors });
     }
-    
-    console.error('OpenAI API error:', error);
-    res.status(500).json({ error: 'Failed to generate itinerary' });
+
+    console.error("OpenAI API error:", error);
+    res.status(500).json({ error: "Failed to generate itinerary" });
   }
 });
 
