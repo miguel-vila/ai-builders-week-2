@@ -4,6 +4,12 @@ import dotenv from "dotenv";
 import { z } from "zod";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
+import { PlacesClient } from "@googlemaps/places";
+
+
+const placesClient = new PlacesClient({
+  apiKey: process.env.GOOGLE_MAPS_API_KEY,
+})
 //import Amadeus, { ResponseError } from "amadeus-ts";
 
 // Load environment variables
@@ -52,21 +58,50 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
+app.get("/api/closest-airport", async (req, res) => {
+  const { lat, lng } = req.query;
+
+  if (!lat || !lng) {
+    return res.status(400).json({ error: "Latitude and longitude are required" });
+  }
+
+  try {
+    const response = await placesClient.searchNearby({
+      locationRestriction: { circle: { center: { latitude: Number(lat), longitude: Number(lng) }, radius: 50000 } },
+      includedTypes: ["airport"], 
+    }, {otherArgs: {
+      headers: {
+        'X-Goog-FieldMask': 'places.displayName'
+      }
+    }});
+    
+    //get the name
+    const airportName = response[0].places?.[0].displayName?.text || "Unknown Airport";
+    console.log("Closest airport:", airportName);
+    res.json({ airport: airportName });
+  } catch (error) {
+    console.error("Error fetching closest airport:", error);
+    res.status(500).json({ error: "Failed to fetch closest airport" });
+  }
+});
+
 app.post("/api/itinerary", async (req, res) => {
   try {
     const { city, dates, preferences } = ItineraryInputSchema.parse(req.body);
 
-    const prompt = `Create a travel itinerary for ${city} for ${dates}. ${
+    const itineraryPrompt = `You are a travel agent helping users plan their trips. Create a travel itinerary for ${city} for ${dates}. ${
       preferences ? `Preferences: ${preferences}` : ""
-    } Please provide a detailed day-by-day plan with activities, restaurants, and tips.`;
+    } Please provide a detailed day-by-day plan with activities, locations, and tips.`;
 
     const response = await openai.responses.parse({
       model: "gpt-4o-2024-08-06",
-      input: [{ role: "system", content: prompt }],
+      input: [{ role: "system", content: itineraryPrompt }],
       text: {
         format: zodTextFormat(ItineraryOutputSchema, "itinerary"),
       },
     });
+
+    // const airportsPrompt = 
 
     res.json({
       itinerary: response.output_parsed,

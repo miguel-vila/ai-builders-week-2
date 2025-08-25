@@ -86,6 +86,8 @@ function renderArrivalAndDeparture(itinerary: ItineraryResponse) {
 
 function App() {
   const [loading, setLoading] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [closestAirport, setClosestAirport] = useState<string | null>(null);
 
   // Itinerary state
   const [city, setCity] = useState("");
@@ -95,6 +97,41 @@ function App() {
   const [preferences, setPreferences] = useState("");
   const [itineraryResponse, setItineraryResponse] =
     useState<ItineraryResponse | null>(null);
+
+  const handleFindClosestAirport = async () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    setLocationLoading(true);
+    setClosestAirport(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const response = await axios.get(`/api/closest-airport?lat=${latitude}&lng=${longitude}`);
+          setClosestAirport(response.data.airport);
+        } catch (error) {
+          console.error('Error finding closest airport:', error);
+          alert('Failed to find closest airport. Please try again.');
+        } finally {
+          setLocationLoading(false);
+        }
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        alert('Unable to retrieve your location. Please enable location services.');
+        setLocationLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000 // 5 minutes
+      }
+    );
+  };
 
   const handleItinerary = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,6 +179,26 @@ function App() {
         <h2 style={{ marginBottom: "1.5rem", color: "#333" }}>
           Generate Travel Itinerary
         </h2>
+        
+        <div style={{ marginBottom: "1.5rem", padding: "1rem", background: "#f8f9fa", borderRadius: "8px" }}>
+          <h3 style={{ marginBottom: "1rem", color: "#333", fontSize: "1.1rem" }}>Find Your Closest Airport</h3>
+          <button 
+            type="button" 
+            onClick={handleFindClosestAirport}
+            disabled={locationLoading}
+            style={{ 
+              marginBottom: "0.5rem",
+              background: locationLoading ? "#ccc" : "linear-gradient(135deg, #28a745 0%, #20c997 100%)"
+            }}
+          >
+            {locationLoading ? "Finding Airport..." : "📍 Find Closest Airport"}
+          </button>
+          {closestAirport && (
+            <div style={{ color: "#28a745", fontWeight: "600" }}>
+              ✈️ Closest Airport: {closestAirport}
+            </div>
+          )}
+        </div>
         <form onSubmit={handleItinerary}>
           <div className="input-group">
             <label htmlFor="city">City/Destination</label>
