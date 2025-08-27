@@ -19,6 +19,20 @@ interface City {
   iata: string;
 }
 
+interface FlightInfo {
+  price: string;
+  duration: string;
+  airline: string;
+  departure: {
+    time: string;
+    airport: string;
+  };
+  arrival: {
+    time: string;
+    airport: string;
+  };
+}
+
 interface ItineraryResponse {
   itinerary: {
     days: ItineraryDay[];
@@ -31,6 +45,10 @@ interface ItineraryResponse {
   departureAirport?: {
     shortName: string;
     iata: string;
+  };
+  flights?: {
+    outbound?: FlightInfo;
+    return?: FlightInfo;
   };
 }
 
@@ -75,6 +93,62 @@ function renderDay(day: ItineraryDay, idx: number) {
       {renderDaySection("🌅 Morning", day.morning)}
       {renderDaySection("☀️ Afternoon", day.afternoon)}
       {renderDaySection("🌙 Evening", day.evening)}
+    </div>
+  );
+}
+
+function renderFlights(flights?: { outbound?: FlightInfo; return?: FlightInfo }) {
+  if (!flights || (!flights.outbound && !flights.return)) {
+    return null;
+  }
+
+  return (
+    <div style={{ marginBottom: "2rem", padding: "1rem", background: "#f8f9fa", borderRadius: "8px" }}>
+      <h3 style={{ color: "#667eea", marginBottom: "1rem", fontSize: "1.2rem" }}>✈️ Flight Options</h3>
+      
+      {flights.outbound && (
+        <div style={{ marginBottom: "1rem", padding: "1rem", background: "white", borderRadius: "6px", border: "1px solid #e1e5e9" }}>
+          <div style={{ fontWeight: "600", color: "#333", marginBottom: "0.5rem" }}>Outbound Flight</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: "1.1rem", fontWeight: "500" }}>
+                {flights.outbound.departure.time} → {flights.outbound.arrival.time}
+              </div>
+              <div style={{ color: "#666", fontSize: "0.9rem" }}>
+                {flights.outbound.departure.airport} → {flights.outbound.arrival.airport}
+              </div>
+              <div style={{ color: "#666", fontSize: "0.9rem" }}>
+                {flights.outbound.airline} • {flights.outbound.duration}
+              </div>
+            </div>
+            <div style={{ fontSize: "1.2rem", fontWeight: "600", color: "#28a745" }}>
+              {flights.outbound.price}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {flights.return && (
+        <div style={{ padding: "1rem", background: "white", borderRadius: "6px", border: "1px solid #e1e5e9" }}>
+          <div style={{ fontWeight: "600", color: "#333", marginBottom: "0.5rem" }}>Return Flight</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: "1.1rem", fontWeight: "500" }}>
+                {flights.return.departure.time} → {flights.return.arrival.time}
+              </div>
+              <div style={{ color: "#666", fontSize: "0.9rem" }}>
+                {flights.return.departure.airport} → {flights.return.arrival.airport}
+              </div>
+              <div style={{ color: "#666", fontSize: "0.9rem" }}>
+                {flights.return.airline} • {flights.return.duration}
+              </div>
+            </div>
+            <div style={{ fontSize: "1.2rem", fontWeight: "600", color: "#28a745" }}>
+              {flights.return.price}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -272,6 +346,7 @@ function App() {
               <em>Dates: {itineraryResponse.dates}</em>
             </div>
             {renderArrivalAndDeparture(itineraryResponse)}
+            {renderFlights(itineraryResponse.flights)}
             {itineraryResponse.preferences && (
               <em>Preferences: {itineraryResponse.preferences}</em>
             )}

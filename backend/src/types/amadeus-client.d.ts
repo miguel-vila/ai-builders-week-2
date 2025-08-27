@@ -13,7 +13,7 @@ declare module 'amadeus' {
   }
 
   interface Shopping {
-    flightOffers: ShoppingFlightOffers;
+    flightOffersSearch: ShoppingFlightOffers;
   }
 
   class Amadeus {

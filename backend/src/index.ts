@@ -59,7 +59,9 @@ const City = z.object({
 
 const ItineraryOutputSchema = z.object({
   arrivalCity: City,
+  arrivalDate: z.string().min(1, "Arrival date is required"),
   returnCity: City,
+  returnDate: z.string().min(1, "Return date is required"),
   days: z.array(
     z.object({
       day: z.string(),
@@ -95,12 +97,74 @@ async function flightSearch(
   params: FlightSearchParams
 ): Promise<AmadeusFlightOffersResponse> {
   try {
-    const response: any = await amadeus.shopping.flightOffers.get(params);
+    const response: any = await amadeus.shopping.flightOffersSearch.get(params);
     return response.result;
   } catch (error) {
     console.error("Amadeus API error:", error);
     throw error;
   }
+}
+
+async function getFlightOptions(
+  departureAirportIata: string,
+  destinationIata: string,
+  departureDate: string,
+  returnDate: string
+) {
+  try {
+    // Parse dates from the response - for now, use a simple future date
+    const today = new Date();
+    const departureDateIso = new Date(departureDate).toISOString().split('T')[0];
+    const returnDateIso = new Date(returnDate).toISOString().split('T')[0];
+
+    const flightParams: FlightSearchParams = {
+      originLocationCode: departureAirportIata,
+      destinationLocationCode: destinationIata,
+      departureDate: departureDateIso,
+      returnDate: returnDateIso,
+      adults: 1
+    };
+
+    const flightOffers = await flightSearch(flightParams);
+    
+    if (flightOffers?.data?.length > 0) {
+      const bestOffer = flightOffers.data[0];
+      const outbound = bestOffer.itineraries[0];
+      const returnFlight = bestOffer.itineraries[1];
+
+      return {
+        outbound: outbound ? {
+          price: `${bestOffer.price.total} ${bestOffer.price.currency}`,
+          duration: outbound.duration.replace('PT', '').toLowerCase(),
+          airline: flightOffers.dictionaries.carriers[outbound.segments[0].carrierCode] || outbound.segments[0].carrierCode,
+          departure: {
+            time: new Date(outbound.segments[0].departure.at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            airport: outbound.segments[0].departure.iataCode
+          },
+          arrival: {
+            time: new Date(outbound.segments[outbound.segments.length - 1].arrival.at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            airport: outbound.segments[outbound.segments.length - 1].arrival.iataCode
+          }
+        } : undefined,
+        return: returnFlight ? {
+          price: `${bestOffer.price.total} ${bestOffer.price.currency}`,
+          duration: returnFlight.duration.replace('PT', '').toLowerCase(),
+          airline: flightOffers.dictionaries.carriers[returnFlight.segments[0].carrierCode] || returnFlight.segments[0].carrierCode,
+          departure: {
+            time: new Date(returnFlight.segments[0].departure.at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            airport: returnFlight.segments[0].departure.iataCode
+          },
+          arrival: {
+            time: new Date(returnFlight.segments[returnFlight.segments.length - 1].arrival.at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            airport: returnFlight.segments[returnFlight.segments.length - 1].arrival.iataCode
+          }
+        } : undefined
+      };
+    }
+  } catch (error) {
+    console.warn('Could not fetch flights:', error);
+  }
+  return undefined;
 }
 
 app.post("/api/itinerary", async (req, res) => {
@@ -109,7 +173,9 @@ app.post("/api/itinerary", async (req, res) => {
       req.body
     );
 
-    const itineraryPrompt = `You are a travel agent helping users plan their trips. Create a travel itinerary for ${city} for ${dates}. ${
+    const now = new Date();
+
+    const itineraryPrompt = `You are a travel agent helping users plan their trips. For context, today is ${now.toLocaleDateString()}. Create a travel itinerary for ${city} for ${dates}. ${
       preferences ? `Preferences: ${preferences}` : ""
     } Please provide a detailed day-by-day plan with activities, locations, and tips.`;
 
@@ -121,9 +187,7 @@ app.post("/api/itinerary", async (req, res) => {
           iata: airport.iata,
         };
       } else {
-        throw new Error(
-          "Could not find nearby airport: invalid response from API"
-        );
+        throw new Error("Could not find nearby airport: Invalid API response with missing fields");
       }
     };
 
@@ -139,12 +203,24 @@ app.post("/api/itinerary", async (req, res) => {
       getDepartureAirport(),
     ]);
 
+    // Search for flights after we have the itinerary
+    let flights = undefined;
+    if (response.output_parsed?.arrivalCity?.iata) {
+      flights = await getFlightOptions(
+        departureAirport.iata,
+        response.output_parsed.arrivalCity.iata,
+        response.output_parsed.arrivalDate,
+        response.output_parsed.returnDate
+      );
+    }
+
     res.json({
       itinerary: response.output_parsed,
       city,
       dates,
       preferences,
       departureAirport,
+      flights,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

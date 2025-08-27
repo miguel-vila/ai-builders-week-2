@@ -104,11 +104,11 @@ export interface LocationInfo {
 
 // Additional types for flight search parameters
 export interface FlightSearchParams {
-  origin: string;
-  destination: string;
+  originLocationCode: string;
+  destinationLocationCode: string;
   departureDate: string; // YYYY-MM-DD format
   returnDate?: string; // YYYY-MM-DD format for round trips
-  adults?: number;
+  adults: number;
 }
 
 // Error response structure
