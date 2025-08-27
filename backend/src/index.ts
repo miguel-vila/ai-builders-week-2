@@ -5,12 +5,17 @@ import { z } from "zod";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { PlacesClient } from "@googlemaps/places";
-
+import Amadeus from "amadeus";
+import fetch from "node-fetch";
 
 const placesClient = new PlacesClient({
   apiKey: process.env.GOOGLE_MAPS_API_KEY,
 })
-//import Amadeus, { ResponseError } from "amadeus-ts";
+
+const amadeus = new Amadeus({
+  clientId: process.env.AMADEUS_API_KEY,
+  clientSecret: process.env.AMADEUS_API_SECRET
+});
 
 // Load environment variables
 dotenv.config();
@@ -58,6 +63,33 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
+function getNearbyAirportApiMarket(lat: number, lon: number) {
+  let radiusKm = 500
+  let limit = 1
+  let withFlightInfoOnly = false
+  let url = `https://prod.api.market/api/v1/aedbx/aerodatabox/airports/search/location?lat=${lat}&lon=${lon}&radiusKm=${radiusKm}&limit=${limit}&withFlightInfoOnly=${withFlightInfoOnly}`;
+
+  let options = { method: 'GET', headers: { 'x-api-market-key': process.env.API_MARKETAPI_KEY! } };
+
+  return fetch(url, options)
+    .then(res => res.json())
+    .then(response => response.items[0])
+}
+
+type DateTimeRange = {
+  date: string;
+  time: string;
+};
+
+function flightSearch(origin: string, destination: string, dateRange: DateTimeRange) {
+  return amadeus.shopping.flightOffers.get({
+    origin,
+    destination,
+    departureDate: dateRange.date,
+    time: dateRange.time,
+  });
+}
+
 app.get("/api/closest-airport", async (req, res) => {
   const { lat, lng } = req.query;
 
@@ -65,24 +97,10 @@ app.get("/api/closest-airport", async (req, res) => {
     return res.status(400).json({ error: "Latitude and longitude are required" });
   }
 
-  try {
-    const response = await placesClient.searchNearby({
-      locationRestriction: { circle: { center: { latitude: Number(lat), longitude: Number(lng) }, radius: 50000 } },
-      includedTypes: ["airport"], 
-    }, {otherArgs: {
-      headers: {
-        'X-Goog-FieldMask': 'places.displayName'
-      }
-    }});
-    
-    //get the name
-    const airportName = response[0].places?.[0].displayName?.text || "Unknown Airport";
-    console.log("Closest airport:", airportName);
-    res.json({ airport: airportName });
-  } catch (error) {
-    console.error("Error fetching closest airport:", error);
-    res.status(500).json({ error: "Failed to fetch closest airport" });
-  }
+  console.log(`Finding closest airport to lat: ${lat}, lng: ${lng}`);
+
+  const {shortName, iata} = await getNearbyAirportApiMarket(Number(lat), Number(lng));
+  res.json({ shortName, iata });
 });
 
 app.post("/api/itinerary", async (req, res) => {

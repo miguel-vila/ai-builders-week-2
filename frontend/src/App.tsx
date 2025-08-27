@@ -87,7 +87,7 @@ function renderArrivalAndDeparture(itinerary: ItineraryResponse) {
 function App() {
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
-  const [closestAirport, setClosestAirport] = useState<string | null>(null);
+  const [closestAirport, setClosestAirport] = useState<{shortName: string, iata: string} | null>(null);
 
   // Itinerary state
   const [city, setCity] = useState("");
@@ -112,7 +112,7 @@ function App() {
         try {
           const { latitude, longitude } = position.coords;
           const response = await axios.get(`/api/closest-airport?lat=${latitude}&lng=${longitude}`);
-          setClosestAirport(response.data.airport);
+          setClosestAirport(response.data);
         } catch (error) {
           console.error('Error finding closest airport:', error);
           alert('Failed to find closest airport. Please try again.');
@@ -195,7 +195,10 @@ function App() {
           </button>
           {closestAirport && (
             <div style={{ color: "#28a745", fontWeight: "600" }}>
-              ✈️ Closest Airport: {closestAirport}
+              ✈️ Closest Airport: {closestAirport.shortName}
+              {closestAirport.iata && (
+                <span style={{ marginLeft: "0.5rem", fontSize: "0.9rem" }}>({closestAirport.iata})</span>
+              )}
             </div>
           )}
         </div>
