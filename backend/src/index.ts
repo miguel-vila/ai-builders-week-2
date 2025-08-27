@@ -7,14 +7,15 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { PlacesClient } from "@googlemaps/places";
 import Amadeus from "amadeus";
 import fetch from "node-fetch";
+import { AmadeusFlightOffersResponse, FlightSearchParams, AmadeusError } from "./types/amadeus";
 
 const placesClient = new PlacesClient({
-  apiKey: process.env.GOOGLE_MAPS_API_KEY,
+  apiKey: process.env.GOOGLE_MAPS_API_KEY!,
 })
 
 const amadeus = new Amadeus({
-  clientId: process.env.AMADEUS_API_KEY,
-  clientSecret: process.env.AMADEUS_API_SECRET
+  clientId: process.env.AMADEUS_API_KEY!,
+  clientSecret: process.env.AMADEUS_API_SECRET!
 });
 
 // Load environment variables
@@ -45,9 +46,14 @@ const ItineraryActivity = z.object({
   durationInHours: z.number().min(1, "Duration must be at least 1 hour"),
 });
 
+const City = z.object({
+  shortName: z.string().min(1, "City name is required"),
+  iata: z.string().min(1, "IATA code is required"),
+});
+
 const ItineraryOutputSchema = z.object({
-  arrivalCity: z.string().min(1, "Arrival city is required"),
-  departureCity: z.string().min(1, "Departure city is required"),
+  arrivalCity: City,
+  departureCity: City,
   days: z.array(
     z.object({
       day: z.string(),
@@ -73,21 +79,17 @@ function getNearbyAirportApiMarket(lat: number, lon: number) {
 
   return fetch(url, options)
     .then(res => res.json())
-    .then(response => response.items[0])
+    .then((response: any) => response.items[0])
 }
 
-type DateTimeRange = {
-  date: string;
-  time: string;
-};
-
-function flightSearch(origin: string, destination: string, dateRange: DateTimeRange) {
-  return amadeus.shopping.flightOffers.get({
-    origin,
-    destination,
-    departureDate: dateRange.date,
-    time: dateRange.time,
-  });
+async function flightSearch(params: FlightSearchParams): Promise<AmadeusFlightOffersResponse> {
+  try {
+    const response: any = await amadeus.shopping.flightOffers.get(params);
+    return response.result;
+  } catch (error) {
+    console.error('Amadeus API error:', error);
+    throw error;
+  }
 }
 
 app.get("/api/closest-airport", async (req, res) => {
