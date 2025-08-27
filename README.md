@@ -10,17 +10,15 @@ npm install
 
 ### 2. Configure Environment Variables
 
-Copy the example environment file and add your OpenAI API key:
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-Edit `backend/.env` and add your OpenAI API key:
+Create `backend/.env` with:
 
 ```
-OPENAI_API_KEY=your_actual_openai_api_key_here
+OPENAI_API_KEY=your_openai_api_key
 PORT=3001
+AMADEUS_API_KEY=your_amadeus_client_id
+AMADEUS_API_SECRET=your_amadeus_client_secret
+API_MARKETAPI_KEY=your_api_market_key
+GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 ```
 
 ### 3. Development
