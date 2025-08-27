@@ -7,15 +7,19 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { PlacesClient } from "@googlemaps/places";
 import Amadeus from "amadeus";
 import fetch from "node-fetch";
-import { AmadeusFlightOffersResponse, FlightSearchParams, AmadeusError } from "./types/amadeus";
+import {
+  AmadeusFlightOffersResponse,
+  FlightSearchParams,
+  AmadeusError,
+} from "./types/amadeus";
 
 const placesClient = new PlacesClient({
   apiKey: process.env.GOOGLE_MAPS_API_KEY!,
-})
+});
 
 const amadeus = new Amadeus({
   clientId: process.env.AMADEUS_API_KEY!,
-  clientSecret: process.env.AMADEUS_API_SECRET!
+  clientSecret: process.env.AMADEUS_API_SECRET!,
 });
 
 // Load environment variables
@@ -72,33 +76,38 @@ app.get("/api/health", (req, res) => {
 });
 
 function getNearbyAirportApiMarket(lat: number, lon: number) {
-  let radiusKm = 500
-  let limit = 1
-  let withFlightInfoOnly = false
+  let radiusKm = 500;
+  let limit = 1;
+  let withFlightInfoOnly = false;
   let url = `https://prod.api.market/api/v1/aedbx/aerodatabox/airports/search/location?lat=${lat}&lon=${lon}&radiusKm=${radiusKm}&limit=${limit}&withFlightInfoOnly=${withFlightInfoOnly}`;
 
-  let options = { method: 'GET', headers: { 'x-api-market-key': process.env.API_MARKETAPI_KEY! } };
+  let options = {
+    method: "GET",
+    headers: { "x-api-market-key": process.env.API_MARKETAPI_KEY! },
+  };
 
   return fetch(url, options)
-    .then(res => res.json())
-    .then((response: any) => response.items[0])
+    .then((res) => res.json())
+    .then((response: any) => response.items[0]);
 }
 
-async function flightSearch(params: FlightSearchParams): Promise<AmadeusFlightOffersResponse> {
+async function flightSearch(
+  params: FlightSearchParams
+): Promise<AmadeusFlightOffersResponse> {
   try {
     const response: any = await amadeus.shopping.flightOffers.get(params);
     return response.result;
   } catch (error) {
-    console.error('Amadeus API error:', error);
+    console.error("Amadeus API error:", error);
     throw error;
   }
 }
 
-
-
 app.post("/api/itinerary", async (req, res) => {
   try {
-    const { city, dates, preferences, lat, lng } = ItineraryInputSchema.parse(req.body);
+    const { city, dates, preferences, lat, lng } = ItineraryInputSchema.parse(
+      req.body
+    );
 
     const itineraryPrompt = `You are a travel agent helping users plan their trips. Create a travel itinerary for ${city} for ${dates}. ${
       preferences ? `Preferences: ${preferences}` : ""
@@ -112,7 +121,9 @@ app.post("/api/itinerary", async (req, res) => {
           iata: airport.iata,
         };
       } else {
-        throw new Error('Could not find nearby airport: invalid response from API');
+        throw new Error(
+          "Could not find nearby airport: invalid response from API"
+        );
       }
     };
 

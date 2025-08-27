@@ -35,7 +35,7 @@ interface ItineraryResponse {
 }
 
 function describeActivity(activity: ItineraryActivity) {
-  if(activity.activity.search(activity.location) === -1) {
+  if (activity.activity.search(activity.location) === -1) {
     return `${activity.activity} in ${activity.location}`;
   }
   return activity.activity;
@@ -45,9 +45,7 @@ function renderActivity(activity: ItineraryActivity, idx: number) {
   return (
     <div key={idx} style={{ marginLeft: "1rem", marginBottom: "0.5rem" }}>
       • {describeActivity(activity)}
-      <em>
-        ({activity.durationInHours}h)
-      </em>
+      <em>({activity.durationInHours}h)</em>
     </div>
   );
 }
@@ -93,14 +91,22 @@ function renderArrivalAndDeparture(itinerary: ItineraryResponse) {
   return (
     <div style={{ marginBottom: "1rem" }}>
       {itinerary.departureAirport && (
-        <div style={{ color: "#28a745", fontWeight: "600", marginBottom: "0.5rem" }}>
-          ✈️ Departure: {itinerary.departureAirport.shortName} ({itinerary.departureAirport.iata})
+        <div
+          style={{
+            color: "#28a745",
+            fontWeight: "600",
+            marginBottom: "0.5rem",
+          }}
+        >
+          ✈️ Departure: {itinerary.departureAirport.shortName} (
+          {itinerary.departureAirport.iata})
         </div>
       )}
       {itinerary.itinerary.arrivalCity !== itinerary.itinerary.returnCity && (
         <div>
           <em>
-            Arrival: {itinerary.itinerary.arrivalCity.shortName} - Return: {itinerary.itinerary.returnCity.shortName}
+            Arrival: {itinerary.itinerary.arrivalCity.shortName} - Return:{" "}
+            {itinerary.itinerary.returnCity.shortName}
           </em>
         </div>
       )}
@@ -111,7 +117,6 @@ function renderArrivalAndDeparture(itinerary: ItineraryResponse) {
 function App() {
   const [loading, setLoading] = useState(false);
 
-
   // Itinerary state
   const [city, setCity] = useState("");
   const [dates, setDates] = useState("");
@@ -120,8 +125,6 @@ function App() {
   const [preferences, setPreferences] = useState("");
   const [itineraryResponse, setItineraryResponse] =
     useState<ItineraryResponse | null>(null);
-
-
 
   const handleItinerary = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,20 +146,25 @@ function App() {
         payload.lng = lng;
       }
 
-      axios.post("/api/itinerary", payload)
-        .then(response => {
+      axios
+        .post("/api/itinerary", payload)
+        .then((response) => {
           setItineraryResponse(response.data);
         })
-        .catch(error => {
+        .catch((error) => {
           console.error("Itinerary error:", error);
           setItineraryResponse({
-            itinerary: { days: [], arrivalCity: {
-              shortName: "",
-              iata: "",
-            }, returnCity: {
-              shortName: "",
-              iata: "",
-            }},
+            itinerary: {
+              days: [],
+              arrivalCity: {
+                shortName: "",
+                iata: "",
+              },
+              returnCity: {
+                shortName: "",
+                iata: "",
+              },
+            },
             city,
             dates,
             preferences,
@@ -175,14 +183,14 @@ function App() {
           getLocationAndSubmit(latitude, longitude);
         },
         (error) => {
-          console.warn('Could not get location:', error);
+          console.warn("Could not get location:", error);
           // Continue without location
           getLocationAndSubmit();
         },
         {
           enableHighAccuracy: true,
           timeout: 5000,
-          maximumAge: 300000 // 5 minutes
+          maximumAge: 300000, // 5 minutes
         }
       );
     } else {
@@ -208,7 +216,6 @@ function App() {
         <h2 style={{ marginBottom: "1.5rem", color: "#333" }}>
           Generate Travel Itinerary
         </h2>
-        
 
         <form onSubmit={handleItinerary}>
           <div className="input-group">
