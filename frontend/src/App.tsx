@@ -28,6 +28,10 @@ interface ItineraryResponse {
   city: string;
   dates: string;
   preferences?: string;
+  departureAirport?: {
+    shortName: string;
+    iata: string;
+  };
 }
 
 function describeActivity(activity: ItineraryActivity) {
@@ -78,21 +82,35 @@ function renderDay(day: ItineraryDay, idx: number) {
 }
 
 function renderArrivalAndDeparture(itinerary: ItineraryResponse) {
-  if(itinerary.itinerary.arrivalCity !== itinerary.itinerary.returnCity ) {
-    return (
-      <div>
-        <em>
-          Arrival: {itinerary.itinerary.arrivalCity.shortName} - Return: {itinerary.itinerary.returnCity.shortName}
-        </em>
-      </div>
-    );
+  const hasDepartureAirport = !!itinerary.departureAirport;
+  const hasDifferentReturnCity =
+    itinerary.itinerary.arrivalCity !== itinerary.itinerary.returnCity;
+
+  if (!hasDepartureAirport && !hasDifferentReturnCity) {
+    return null;
   }
+
+  return (
+    <div style={{ marginBottom: "1rem" }}>
+      {itinerary.departureAirport && (
+        <div style={{ color: "#28a745", fontWeight: "600", marginBottom: "0.5rem" }}>
+          ✈️ Departure: {itinerary.departureAirport.shortName} ({itinerary.departureAirport.iata})
+        </div>
+      )}
+      {itinerary.itinerary.arrivalCity !== itinerary.itinerary.returnCity && (
+        <div>
+          <em>
+            Arrival: {itinerary.itinerary.arrivalCity.shortName} - Return: {itinerary.itinerary.returnCity.shortName}
+          </em>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function App() {
   const [loading, setLoading] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [closestAirport, setClosestAirport] = useState<{shortName: string, iata: string} | null>(null);
+
 
   // Itinerary state
   const [city, setCity] = useState("");
@@ -103,40 +121,7 @@ function App() {
   const [itineraryResponse, setItineraryResponse] =
     useState<ItineraryResponse | null>(null);
 
-  const handleFindClosestAirport = async () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by this browser.');
-      return;
-    }
 
-    setLocationLoading(true);
-    setClosestAirport(null);
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          const response = await axios.get(`/api/closest-airport?lat=${latitude}&lng=${longitude}`);
-          setClosestAirport(response.data);
-        } catch (error) {
-          console.error('Error finding closest airport:', error);
-          alert('Failed to find closest airport. Please try again.');
-        } finally {
-          setLocationLoading(false);
-        }
-      },
-      (error) => {
-        console.error('Geolocation error:', error);
-        alert('Unable to retrieve your location. Please enable location services.');
-        setLocationLoading(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000 // 5 minutes
-      }
-    );
-  };
 
   const handleItinerary = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,29 +130,64 @@ function App() {
     setLoading(true);
     setItineraryResponse(null);
 
-    try {
-      const response = await axios.post("/api/itinerary", {
+    // Get user location for departure airport detection
+    const getLocationAndSubmit = (lat?: number, lng?: number) => {
+      const payload: any = {
         city: city.trim(),
         dates: dates.trim(),
         preferences: preferences.trim() || undefined,
-      });
-      setItineraryResponse(response.data);
-    } catch (error) {
-      console.error("Itinerary error:", error);
-      setItineraryResponse({
-        itinerary: { days: [], arrivalCity: {
-          shortName: "",
-          iata: "",
-        }, returnCity: {
-          shortName: "",
-          iata: "",
-        }},
-        city,
-        dates,
-        preferences,
-      });
-    } finally {
-      setLoading(false);
+      };
+
+      if (lat !== undefined && lng !== undefined) {
+        payload.lat = lat;
+        payload.lng = lng;
+      }
+
+      axios.post("/api/itinerary", payload)
+        .then(response => {
+          setItineraryResponse(response.data);
+        })
+        .catch(error => {
+          console.error("Itinerary error:", error);
+          setItineraryResponse({
+            itinerary: { days: [], arrivalCity: {
+              shortName: "",
+              iata: "",
+            }, returnCity: {
+              shortName: "",
+              iata: "",
+            }},
+            city,
+            dates,
+            preferences,
+          });
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    };
+
+    // Try to get user location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          getLocationAndSubmit(latitude, longitude);
+        },
+        (error) => {
+          console.warn('Could not get location:', error);
+          // Continue without location
+          getLocationAndSubmit();
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 300000 // 5 minutes
+        }
+      );
+    } else {
+      // No geolocation support, continue without location
+      getLocationAndSubmit();
     }
   };
 
@@ -189,28 +209,7 @@ function App() {
           Generate Travel Itinerary
         </h2>
         
-        <div style={{ marginBottom: "1.5rem", padding: "1rem", background: "#f8f9fa", borderRadius: "8px" }}>
-          <h3 style={{ marginBottom: "1rem", color: "#333", fontSize: "1.1rem" }}>Find Your Closest Airport</h3>
-          <button 
-            type="button" 
-            onClick={handleFindClosestAirport}
-            disabled={locationLoading}
-            style={{ 
-              marginBottom: "0.5rem",
-              background: locationLoading ? "#ccc" : "linear-gradient(135deg, #28a745 0%, #20c997 100%)"
-            }}
-          >
-            {locationLoading ? "Finding Airport..." : "📍 Find Closest Airport"}
-          </button>
-          {closestAirport && (
-            <div style={{ color: "#28a745", fontWeight: "600" }}>
-              ✈️ Closest Airport: {closestAirport.shortName}
-              {closestAirport.iata && (
-                <span style={{ marginLeft: "0.5rem", fontSize: "0.9rem" }}>({closestAirport.iata})</span>
-              )}
-            </div>
-          )}
-        </div>
+
         <form onSubmit={handleItinerary}>
           <div className="input-group">
             <label htmlFor="city">City/Destination</label>

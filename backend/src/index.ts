@@ -38,6 +38,8 @@ const ItineraryInputSchema = z.object({
   city: z.string().min(1, "City is required"),
   dates: z.string().min(1, "Dates are required"),
   preferences: z.string().optional(),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
 });
 
 const ItineraryActivity = z.object({
@@ -92,42 +94,46 @@ async function flightSearch(params: FlightSearchParams): Promise<AmadeusFlightOf
   }
 }
 
-app.get("/api/closest-airport", async (req, res) => {
-  const { lat, lng } = req.query;
 
-  if (!lat || !lng) {
-    return res.status(400).json({ error: "Latitude and longitude are required" });
-  }
-
-  console.log(`Finding closest airport to lat: ${lat}, lng: ${lng}`);
-
-  const {shortName, iata} = await getNearbyAirportApiMarket(Number(lat), Number(lng));
-  res.json({ shortName, iata });
-});
 
 app.post("/api/itinerary", async (req, res) => {
   try {
-    const { city, dates, preferences } = ItineraryInputSchema.parse(req.body);
+    const { city, dates, preferences, lat, lng } = ItineraryInputSchema.parse(req.body);
 
     const itineraryPrompt = `You are a travel agent helping users plan their trips. Create a travel itinerary for ${city} for ${dates}. ${
       preferences ? `Preferences: ${preferences}` : ""
     } Please provide a detailed day-by-day plan with activities, locations, and tips.`;
 
-    const response = await openai.responses.parse({
-      model: "gpt-4o-2024-08-06",
-      input: [{ role: "system", content: itineraryPrompt }],
-      text: {
-        format: zodTextFormat(ItineraryOutputSchema, "itinerary"),
-      },
-    });
+    const getDepartureAirport = async () => {
+      const airport = await getNearbyAirportApiMarket(lat, lng);
+      if (airport && airport.shortName && airport.iata) {
+        return {
+          shortName: airport.shortName,
+          iata: airport.iata,
+        };
+      } else {
+        throw new Error('Could not find nearby airport: invalid response from API');
+      }
+    };
 
-    // const airportsPrompt = 
+    // Run OpenAI and airport queries concurrently
+    const [response, departureAirport] = await Promise.all([
+      openai.responses.parse({
+        model: "gpt-4o-2024-08-06",
+        input: [{ role: "system", content: itineraryPrompt }],
+        text: {
+          format: zodTextFormat(ItineraryOutputSchema, "itinerary"),
+        },
+      }),
+      getDepartureAirport(),
+    ]);
 
     res.json({
       itinerary: response.output_parsed,
       city,
       dates,
       preferences,
+      departureAirport,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
