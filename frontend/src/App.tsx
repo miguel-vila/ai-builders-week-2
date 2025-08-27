@@ -14,11 +14,16 @@ interface ItineraryDay {
   evening: ItineraryActivity[];
 }
 
+interface City {
+  shortName: string;
+  iata: string;
+}
+
 interface ItineraryResponse {
   itinerary: {
     days: ItineraryDay[];
-    arrivalCity: string;
-    departureCity: string;
+    arrivalCity: City;
+    returnCity: City;
   };
   city: string;
   dates: string;
@@ -73,11 +78,11 @@ function renderDay(day: ItineraryDay, idx: number) {
 }
 
 function renderArrivalAndDeparture(itinerary: ItineraryResponse) {
-  if(itinerary.itinerary.arrivalCity !== itinerary.itinerary.departureCity ) {
+  if(itinerary.itinerary.arrivalCity !== itinerary.itinerary.returnCity ) {
     return (
       <div>
         <em>
-          Arrival: {itinerary.itinerary.arrivalCity} - Departure: {itinerary.itinerary.departureCity}
+          Arrival: {itinerary.itinerary.arrivalCity.shortName} - Return: {itinerary.itinerary.returnCity.shortName}
         </em>
       </div>
     );
@@ -144,15 +149,19 @@ function App() {
       const response = await axios.post("/api/itinerary", {
         city: city.trim(),
         dates: dates.trim(),
-        arrivalCity: arrivalCity.trim(),
-        departureCity: departureCity.trim(),
         preferences: preferences.trim() || undefined,
       });
       setItineraryResponse(response.data);
     } catch (error) {
       console.error("Itinerary error:", error);
       setItineraryResponse({
-        itinerary: { days: [], arrivalCity: "", departureCity: "" },
+        itinerary: { days: [], arrivalCity: {
+          shortName: "",
+          iata: "",
+        }, returnCity: {
+          shortName: "",
+          iata: "",
+        }},
         city,
         dates,
         preferences,

@@ -53,7 +53,7 @@ const City = z.object({
 
 const ItineraryOutputSchema = z.object({
   arrivalCity: City,
-  departureCity: City,
+  returnCity: City,
   days: z.array(
     z.object({
       day: z.string(),
