@@ -206,8 +206,6 @@ function App() {
   // Itinerary state
   const [city, setCity] = useState("");
   const [dates, setDates] = useState("");
-  const [arrivalCity, setArrivalCity] = useState("");
-  const [departureCity, setDepartureCity] = useState("");
   const [preferences, setPreferences] = useState("");
   const [itineraryResponse, setItineraryResponse] =
     useState<ItineraryResponse | null>(null);
