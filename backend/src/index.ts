@@ -12,6 +12,7 @@ import {
   FlightSearchParams,
   AmadeusError,
 } from "./types/amadeus";
+import { open } from "fs";
 
 const placesClient = new PlacesClient({
   apiKey: process.env.GOOGLE_MAPS_API_KEY!,
@@ -58,16 +59,12 @@ const City = z.object({
 });
 
 const ItineraryOutputSchema = z.object({
-  arrivalCity: City,
-  arrivalDate: z.string().min(1, "Arrival date is required"),
-  returnCity: City,
-  returnDate: z.string().min(1, "Return date is required"),
   days: z.array(
     z.object({
       day: z.string(),
-      morning: z.array(ItineraryActivity),
-      afternoon: z.array(ItineraryActivity),
-      evening: z.array(ItineraryActivity),
+      morning: z.array(ItineraryActivity).optional(),
+      afternoon: z.array(ItineraryActivity).optional(),
+      evening: z.array(ItineraryActivity).optional(),
     })
   ),
 });
@@ -167,6 +164,8 @@ async function getFlightOptions(
   return undefined;
 }
 
+const model = "gpt-4o-2024-08-06";
+
 app.post("/api/itinerary", async (req, res) => {
   try {
     const { city, dates, preferences, lat, lng } = ItineraryInputSchema.parse(
@@ -175,9 +174,29 @@ app.post("/api/itinerary", async (req, res) => {
 
     const now = new Date();
 
-    const itineraryPrompt = `You are a travel agent helping users plan their trips. For context, today is ${now.toLocaleDateString()}. Create a travel itinerary for ${city} for ${dates}. ${
-      preferences ? `Preferences: ${preferences}` : ""
-    } Please provide a detailed day-by-day plan with activities, locations, and tips.`;
+    const datesPrompt = 
+      `You are a travel agent helping users plan their trips. 
+       For context, today is ${now.toLocaleDateString()}. 
+       First, define the trip dates for a trip to ${city} for the following user-provided dates: ${dates}. 
+       Return the arrival date and return date in ISO format.
+       Also, return information about the departure city (short name and IATA code) and the arrival city (short name and IATA code).
+       Ensure the arrival date is not in the past.`;
+
+    const flightsData = openai.responses.parse({
+      model: model,
+      input: [{ role: "system", content: datesPrompt }],
+      text: {
+        format: zodTextFormat(
+          z.object({
+            arrivalCity: City,
+            arrivalDate: z.string().min(1, "Arrival date is required"),
+            returnCity: City,
+            returnDate: z.string().min(1, "Return date is required"),
+          }),
+          "dates"
+        ),
+      },
+    });
 
     const getDepartureAirport = async () => {
       const airport = await getNearbyAirportApiMarket(lat, lng);
@@ -191,31 +210,54 @@ app.post("/api/itinerary", async (req, res) => {
       }
     };
 
+    const [flightsDataResponse, departureAirport] = await Promise.all([
+      flightsData,
+      getDepartureAirport(),
+    ]);
+
+
+    // Search for flights after we have the itinerary
+    let flights = undefined;
+    if (flightsDataResponse.output_parsed?.arrivalCity?.iata) {
+      flights = await getFlightOptions(
+        departureAirport.iata,
+        flightsDataResponse.output_parsed.arrivalCity.iata,
+        flightsDataResponse.output_parsed.arrivalDate,
+        flightsDataResponse.output_parsed.returnDate
+      );
+    }
+    
+    const arrivalAirport = flights?.outbound?.arrival.airport || flightsDataResponse.output_parsed?.arrivalCity?.shortName;
+    const arrivalDate = flights?.outbound?.arrival.time!
+    const returnAirport = flights?.return?.departure.airport || flightsDataResponse.output_parsed?.returnCity?.shortName;
+    const returnDate = flights?.return?.departure.time!
+
+    const itineraryPrompt = `You are a travel agent helping users plan their trips. 
+      Create a travel itinerary for ${city} for ${dates}. ${
+      preferences ? `Preferences: ${preferences}` : ""
+    } Please provide a detailed day-by-day plan with activities, locations, and tips.
+      We have defined that the user will be arriving on ${arrivalDate} to ${arrivalAirport} and returning on ${returnDate} to ${returnAirport}.
+      Take into account whether the arrival or departure times are in the morning, afternoon, or evening when planning activities for those days.
+    `;
+
     // Run OpenAI and airport queries concurrently
-    const [response, departureAirport] = await Promise.all([
-      openai.responses.parse({
+    const daysResponse =
+      await openai.responses.parse({
         model: "gpt-4o-2024-08-06",
         input: [{ role: "system", content: itineraryPrompt }],
         text: {
           format: zodTextFormat(ItineraryOutputSchema, "itinerary"),
         },
-      }),
-      getDepartureAirport(),
-    ]);
+      });
 
-    // Search for flights after we have the itinerary
-    let flights = undefined;
-    if (response.output_parsed?.arrivalCity?.iata) {
-      flights = await getFlightOptions(
-        departureAirport.iata,
-        response.output_parsed.arrivalCity.iata,
-        response.output_parsed.arrivalDate,
-        response.output_parsed.returnDate
-      );
-    }
-
+    const itinerary = {
+      arrivalCity: flightsDataResponse.output_parsed?.arrivalCity!,
+      returnCity: flightsDataResponse.output_parsed?.returnCity!,
+      days: daysResponse.output_parsed!.days,
+    };
+   
     res.json({
-      itinerary: response.output_parsed,
+      itinerary,
       city,
       dates,
       preferences,

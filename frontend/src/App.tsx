@@ -9,9 +9,9 @@ interface ItineraryActivity {
 
 interface ItineraryDay {
   day: string;
-  morning: ItineraryActivity[];
-  afternoon: ItineraryActivity[];
-  evening: ItineraryActivity[];
+  morning: ItineraryActivity[] | undefined;
+  afternoon: ItineraryActivity[] | undefined;
+  evening: ItineraryActivity[] | undefined;
 }
 
 interface City {
@@ -68,7 +68,10 @@ function renderActivity(activity: ItineraryActivity, idx: number) {
   );
 }
 
-function renderDaySection(title: string, daySection: ItineraryActivity[]) {
+function renderDaySection(title: string, daySection: ItineraryActivity[] | undefined) {
+  if (!daySection || daySection.length === 0) {
+    return null;
+  }
   return (
     <div style={{ marginBottom: "1rem" }}>
       <h4 style={{ color: "#333", marginBottom: "0.5rem" }}>{title}</h4>
