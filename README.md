@@ -49,8 +49,16 @@ npm run dev:frontend
 npm run build
 ```
 
+## Features
+
+- **Travel Itinerary Generation**: AI-powered itinerary creation with OpenAI
+- **Flight Integration**: Real-time flight search and pricing via Amadeus API
+- **Location Detection**: Automatic departure airport detection using geolocation
+- **Google Calendar Export**: Download .ics file and import directly to Google Calendar
+
 ## Notes
 
 - Make sure to get an OpenAI API key from https://platform.openai.com/
 - The frontend uses Vite's proxy to forward `/api` requests to the backend
 - Both frontend and backend have TypeScript strict mode enabled
+- Calendar export generates a standard .ics file compatible with Google Calendar and other calendar applications

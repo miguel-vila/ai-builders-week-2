@@ -12,7 +12,7 @@ import {
   FlightSearchParams,
   AmadeusError,
 } from "./types/amadeus";
-import { open } from "fs";
+
 
 const placesClient = new PlacesClient({
   apiKey: process.env.GOOGLE_MAPS_API_KEY!,
@@ -68,6 +68,44 @@ const ItineraryOutputSchema = z.object({
       evening: z.array(ItineraryActivity).optional(),
     })
   ),
+});
+
+const FlightInfo = z.object({
+  price: z.string(),
+  duration: z.string(),
+  airline: z.string(),
+  departure: z.object({
+    date: z.string(),
+    time: z.string(),
+    airport: z.string(),
+  }),
+  arrival: z.object({
+    date: z.string(),
+    time: z.string(),
+    airport: z.string(),
+  }),
+});
+
+const CalendarExportSchema = z.object({
+  itinerary: z.object({
+    days: z.array(
+      z.object({
+        dayDate: z.string().date(),
+        dayNumber: z.number().int().positive(),
+        morning: z.array(ItineraryActivity).optional(),
+        afternoon: z.array(ItineraryActivity).optional(),
+        evening: z.array(ItineraryActivity).optional(),
+      })
+    ),
+    arrivalCity: City,
+    returnCity: City,
+  }),
+  city: z.string(),
+  dates: z.string(),
+  flights: z.object({
+    outbound: FlightInfo.optional(),
+    return: FlightInfo.optional(),
+  }).optional(),
 });
 
 // Routes
@@ -175,6 +213,150 @@ async function getFlightOptions(
 
 const model = "gpt-4o-2024-08-06";
 
+function parseDateTime(date: string, time: string): string {
+  // Convert from UK format (DD/MM/YYYY) to ISO format
+  const [day, month, year] = date.split('/');
+  const [hours, minutes] = time.split(':');
+  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes)).toISOString();
+}
+
+function formatDateForICS(date: Date): string {
+  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+}
+
+function escapeICSText(text: string): string {
+  return text.replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
+}
+
+function createICSContent(data: any): string {
+  const events = [];
+
+  // Add flight events
+  if (data.flights?.outbound) {
+    const flight = data.flights.outbound;
+    const departureDateTime = new Date(parseDateTime(flight.departure.date, flight.departure.time));
+    const arrivalDateTime = new Date(parseDateTime(flight.arrival.date, flight.arrival.time));
+    
+    events.push({
+      uid: `outbound-flight-${Date.now()}@travel-itinerary`,
+      summary: `✈️ Outbound Flight - ${flight.airline}`,
+      description: `Flight to ${data.city}\nAirline: ${flight.airline}\nDuration: ${flight.duration}\nPrice: ${flight.price}`,
+      location: `${flight.departure.airport} → ${flight.arrival.airport}`,
+      dtstart: formatDateForICS(departureDateTime),
+      dtend: formatDateForICS(arrivalDateTime),
+    });
+  }
+
+  if (data.flights?.return) {
+    const flight = data.flights.return;
+    const departureDateTime = new Date(parseDateTime(flight.departure.date, flight.departure.time));
+    const arrivalDateTime = new Date(parseDateTime(flight.arrival.date, flight.arrival.time));
+    
+    events.push({
+      uid: `return-flight-${Date.now()}@travel-itinerary`,
+      summary: `✈️ Return Flight - ${flight.airline}`,
+      description: `Return flight from ${data.city}\nAirline: ${flight.airline}\nDuration: ${flight.duration}\nPrice: ${flight.price}`,
+      location: `${flight.departure.airport} → ${flight.arrival.airport}`,
+      dtstart: formatDateForICS(departureDateTime),
+      dtend: formatDateForICS(arrivalDateTime),
+    });
+  }
+
+  // Add itinerary activity events
+  data.itinerary.days.forEach((day: any, dayIndex: number) => {
+    const dayDate = new Date(day.dayDate);
+    
+    // Morning activities (9 AM)
+    if (day.morning && day.morning.length > 0) {
+      day.morning.forEach((activity: any, index: number) => {
+        const startTime = new Date(dayDate);
+        startTime.setHours(9 + index * activity.durationInHours, 0, 0, 0);
+        const endTime = new Date(startTime);
+        endTime.setHours(startTime.getHours() + activity.durationInHours);
+        
+        events.push({
+          uid: `morning-${dayIndex}-${index}-${Date.now()}@travel-itinerary`,
+          summary: `🌅 ${activity.activity}`,
+          description: `Morning activity in ${activity.location}\nDuration: ${activity.durationInHours} hours`,
+          location: activity.location,
+          dtstart: formatDateForICS(startTime),
+          dtend: formatDateForICS(endTime),
+        });
+      });
+    }
+
+    // Afternoon activities (1 PM)
+    if (day.afternoon && day.afternoon.length > 0) {
+      day.afternoon.forEach((activity: any, index: number) => {
+        const startTime = new Date(dayDate);
+        startTime.setHours(13 + index * activity.durationInHours, 0, 0, 0);
+        const endTime = new Date(startTime);
+        endTime.setHours(startTime.getHours() + activity.durationInHours);
+        
+        events.push({
+          uid: `afternoon-${dayIndex}-${index}-${Date.now()}@travel-itinerary`,
+          summary: `☀️ ${activity.activity}`,
+          description: `Afternoon activity in ${activity.location}\nDuration: ${activity.durationInHours} hours`,
+          location: activity.location,
+          dtstart: formatDateForICS(startTime),
+          dtend: formatDateForICS(endTime),
+        });
+      });
+    }
+
+    // Evening activities (6 PM)
+    if (day.evening && day.evening.length > 0) {
+      day.evening.forEach((activity: any, index: number) => {
+        const startTime = new Date(dayDate);
+        startTime.setHours(18 + index * activity.durationInHours, 0, 0, 0);
+        const endTime = new Date(startTime);
+        endTime.setHours(startTime.getHours() + activity.durationInHours);
+        
+        events.push({
+          uid: `evening-${dayIndex}-${index}-${Date.now()}@travel-itinerary`,
+          summary: `🌙 ${activity.activity}`,
+          description: `Evening activity in ${activity.location}\nDuration: ${activity.durationInHours} hours`,
+          location: activity.location,
+          dtstart: formatDateForICS(startTime),
+          dtend: formatDateForICS(endTime),
+        });
+      });
+    }
+  });
+
+  // Generate ICS content
+  let icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Travel Itinerary//EN
+CALSCALE:GREGORIAN
+`;
+  
+  events.forEach(event => {
+    icsContent += `BEGIN:VEVENT
+`;
+    icsContent += `UID:${event.uid}
+`;
+    icsContent += `DTSTART:${event.dtstart}
+`;
+    icsContent += `DTEND:${event.dtend}
+`;
+    icsContent += `SUMMARY:${escapeICSText(event.summary)}
+`;
+    icsContent += `DESCRIPTION:${escapeICSText(event.description)}
+`;
+    icsContent += `LOCATION:${escapeICSText(event.location)}
+`;
+    icsContent += `DTSTAMP:${formatDateForICS(new Date())}
+`;
+    icsContent += `END:VEVENT
+`;
+  });
+  
+  icsContent += `END:VCALENDAR`;
+  
+  return icsContent;
+}
+
 app.post("/api/itinerary", async (req, res) => {
   try {
     const { city, dates, preferences, lat, lng } = ItineraryInputSchema.parse(
@@ -242,8 +424,9 @@ app.post("/api/itinerary", async (req, res) => {
     const returnDate = flights?.return?.departure.time!
 
     const itineraryPrompt = `You are a travel agent helping users plan their trips. 
-      Create a travel itinerary for ${city} for ${dates}. ${
-      preferences ? `Preferences: ${preferences}` : ""
+      Create a travel itinerary for ${city} for ${dates}. 
+      For context, today is ${now.toLocaleDateString()}.
+      ${preferences ? `Preferences: ${preferences}` : ""
     } Please provide a detailed day-by-day plan with activities, locations, and tips.
       We have defined that the user will be arriving on ${arrivalDate} to ${arrivalAirport} and returning on ${returnDate} to ${returnAirport}.
       Take into account whether the arrival or departure times are in the morning, afternoon, or evening when planning activities for those days.
@@ -283,6 +466,33 @@ app.post("/api/itinerary", async (req, res) => {
 
     console.error("OpenAI API error:", error);
     res.status(500).json({ error: "Failed to generate itinerary" });
+  }
+});
+
+app.post("/api/export-calendar", async (req, res) => {
+  try {
+    const data = CalendarExportSchema.parse(req.body);
+    
+    // Generate ICS content
+    const icsContent = createICSContent(data);
+    
+    // Set headers for file download
+    res.setHeader('Content-Type', 'text/calendar');
+    res.setHeader('Content-Disposition', `attachment; filename="${data.city.replace(/[^a-zA-Z0-9]/g, '_')}_itinerary.ics"`);
+    
+    res.send(icsContent);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res
+        .status(400)
+        .json({ error: "Validation error", details: error.errors });
+    }
+
+    console.error("ICS export error:", error);
+    res.status(500).json({ 
+      error: "Failed to export calendar",
+      message: error instanceof Error ? error.message : "Unknown error"
+    });
   }
 });
 

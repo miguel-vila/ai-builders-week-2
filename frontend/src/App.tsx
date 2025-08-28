@@ -203,6 +203,7 @@ function renderArrivalAndDeparture(itinerary: ItineraryResponse) {
 
 function App() {
   const [loading, setLoading] = useState(false);
+  const [exportingCalendar, setExportingCalendar] = useState(false);
 
   // Itinerary state
   const [city, setCity] = useState("");
@@ -284,6 +285,41 @@ function App() {
     }
   };
 
+  const handleExportToCalendar = async () => {
+    if (!itineraryResponse) return;
+
+    setExportingCalendar(true);
+    try {
+      const response = await axios.post("/api/export-calendar", itineraryResponse, {
+        responseType: 'blob',
+      });
+      
+      // Create a blob URL and trigger download
+      const blob = new Blob([response.data], { type: 'text/calendar' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${itineraryResponse.city.replace(/[^a-zA-Z0-9]/g, '_')}_itinerary.ics`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      // Open Google Calendar import page
+      setTimeout(() => {
+        window.open('https://calendar.google.com/calendar/r/settings/import-export', '_blank');
+      }, 500);
+      
+      alert('Calendar file downloaded! Please upload the .ics file to Google Calendar using the opened page.');
+    } catch (error: any) {
+      console.error("Calendar export error:", error);
+      const errorMessage = error.response?.data?.message || "Failed to export calendar";
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setExportingCalendar(false);
+    }
+  };
+
   return (
     <div className="container">
       <h1
@@ -352,7 +388,26 @@ function App() {
 
         {itineraryResponse && (
           <div className="response">
-            <strong>Your Itinerary for {itineraryResponse.city}</strong>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <strong>Your Itinerary for {itineraryResponse.city}</strong>
+              <button
+                onClick={handleExportToCalendar}
+                disabled={exportingCalendar}
+                style={{
+                  padding: "0.5rem 1rem",
+                  backgroundColor: "#4285f4",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: exportingCalendar ? "not-allowed" : "pointer",
+                  opacity: exportingCalendar ? 0.6 : 1,
+                  fontSize: "0.9rem",
+                  fontWeight: "500",
+                }}
+              >
+                {exportingCalendar ? "📅 Exporting..." : "📅 Export to Google Calendar"}
+              </button>
+            </div>
             <div>
               <em>Dates: {itineraryResponse.dates}</em>
             </div>
