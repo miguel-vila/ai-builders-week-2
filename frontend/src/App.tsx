@@ -8,7 +8,8 @@ interface ItineraryActivity {
 }
 
 interface ItineraryDay {
-  day: string;
+  dayDate: string;
+  dayNumber: number;
   morning: ItineraryActivity[] | undefined;
   afternoon: ItineraryActivity[] | undefined;
   evening: ItineraryActivity[] | undefined;
@@ -93,7 +94,7 @@ function renderDay(day: ItineraryDay, idx: number) {
         borderRadius: "8px",
       }}
     >
-      <h3 style={{ color: "#667eea", marginBottom: "1rem" }}>{day.day}</h3>
+      <h3 style={{ color: "#667eea", marginBottom: "1rem" }}>Day {day.dayNumber}</h3>
 
       {renderDaySection("🌅 Morning", day.morning)}
       {renderDaySection("☀️ Afternoon", day.afternoon)}

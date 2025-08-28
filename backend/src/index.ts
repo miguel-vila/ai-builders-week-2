@@ -61,7 +61,8 @@ const City = z.object({
 const ItineraryOutputSchema = z.object({
   days: z.array(
     z.object({
-      day: z.string(),
+      dayDate: z.string().date(),
+      dayNumber: z.number().int().positive(),
       morning: z.array(ItineraryActivity).optional(),
       afternoon: z.array(ItineraryActivity).optional(),
       evening: z.array(ItineraryActivity).optional(),
@@ -246,6 +247,7 @@ app.post("/api/itinerary", async (req, res) => {
     } Please provide a detailed day-by-day plan with activities, locations, and tips.
       We have defined that the user will be arriving on ${arrivalDate} to ${arrivalAirport} and returning on ${returnDate} to ${returnAirport}.
       Take into account whether the arrival or departure times are in the morning, afternoon, or evening when planning activities for those days.
+      For each day, provide a dayDate field with the actual date in ISO format and a dayNumber field with the sequential day number (1, 2, 3, etc.).
     `;
 
     // Run OpenAI and airport queries concurrently
