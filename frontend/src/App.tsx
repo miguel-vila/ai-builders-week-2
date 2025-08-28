@@ -24,10 +24,12 @@ interface FlightInfo {
   duration: string;
   airline: string;
   departure: {
+    date: string;
     time: string;
     airport: string;
   };
   arrival: {
+    date: string;
     time: string;
     airport: string;
   };
@@ -100,6 +102,13 @@ function renderDay(day: ItineraryDay, idx: number) {
   );
 }
 
+function renderFlightInfoDates(flight: FlightInfo): string {
+  if (flight.departure.date === flight.arrival.date) {
+    return `${flight.departure.date} : ${flight.departure.time} → ${flight.arrival.time}`;
+  }
+  return `${flight.departure.date} : ${flight.departure.time} → ${flight.arrival.date} : ${flight.arrival.time}`;
+}
+
 function renderFlights(flights?: { outbound?: FlightInfo; return?: FlightInfo }) {
   if (!flights || (!flights.outbound && !flights.return)) {
     return null;
@@ -115,7 +124,7 @@ function renderFlights(flights?: { outbound?: FlightInfo; return?: FlightInfo })
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
             <div>
               <div style={{ fontSize: "1.1rem", fontWeight: "500" }}>
-                {flights.outbound.departure.time} → {flights.outbound.arrival.time}
+                {renderFlightInfoDates(flights.outbound)}
               </div>
               <div style={{ color: "#666", fontSize: "0.9rem" }}>
                 {flights.outbound.departure.airport} → {flights.outbound.arrival.airport}
@@ -137,7 +146,7 @@ function renderFlights(flights?: { outbound?: FlightInfo; return?: FlightInfo })
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
             <div>
               <div style={{ fontSize: "1.1rem", fontWeight: "500" }}>
-                {flights.return.departure.time} → {flights.return.arrival.time}
+                {renderFlightInfoDates(flights.return)}
               </div>
               <div style={{ color: "#666", fontSize: "0.9rem" }}>
                 {flights.return.departure.airport} → {flights.return.arrival.airport}

@@ -128,6 +128,10 @@ async function getFlightOptions(
       const bestOffer = flightOffers.data[0];
       const outbound = bestOffer.itineraries[0];
       const returnFlight = bestOffer.itineraries[1];
+      const outboundDepartureDateTime = new Date(outbound.segments[0].departure.at);
+      const outboundArrivalDateTime = new Date(outbound.segments[outbound.segments.length - 1].arrival.at);
+      const returnDepartureDateTime = returnFlight ? new Date(returnFlight.segments[0].departure.at) : null;
+      const returnArrivalDateTime = returnFlight ? new Date(returnFlight.segments[returnFlight.segments.length - 1].arrival.at) : null;
 
       return {
         outbound: outbound ? {
@@ -135,11 +139,13 @@ async function getFlightOptions(
           duration: outbound.duration.replace('PT', '').toLowerCase(),
           airline: flightOffers.dictionaries.carriers[outbound.segments[0].carrierCode] || outbound.segments[0].carrierCode,
           departure: {
-            time: new Date(outbound.segments[0].departure.at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            date: outboundDepartureDateTime.toLocaleDateString('en-UK'),
+            time: outboundDepartureDateTime.toLocaleTimeString('en-UK', { hour: '2-digit', minute: '2-digit' }),
             airport: outbound.segments[0].departure.iataCode
           },
           arrival: {
-            time: new Date(outbound.segments[outbound.segments.length - 1].arrival.at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            date: outboundArrivalDateTime.toLocaleDateString('en-UK'),
+            time: outboundArrivalDateTime.toLocaleTimeString('en-UK', { hour: '2-digit', minute: '2-digit' }),
             airport: outbound.segments[outbound.segments.length - 1].arrival.iataCode
           }
         } : undefined,
@@ -148,11 +154,13 @@ async function getFlightOptions(
           duration: returnFlight.duration.replace('PT', '').toLowerCase(),
           airline: flightOffers.dictionaries.carriers[returnFlight.segments[0].carrierCode] || returnFlight.segments[0].carrierCode,
           departure: {
-            time: new Date(returnFlight.segments[0].departure.at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            date: returnDepartureDateTime!.toLocaleDateString('en-UK'),
+            time: returnDepartureDateTime!.toLocaleTimeString('en-UK', { hour: '2-digit', minute: '2-digit' }),
             airport: returnFlight.segments[0].departure.iataCode
           },
           arrival: {
-            time: new Date(returnFlight.segments[returnFlight.segments.length - 1].arrival.at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            date: returnArrivalDateTime!.toLocaleDateString('en-UK'),
+            time: returnArrivalDateTime!.toLocaleTimeString('en-UK', { hour: '2-digit', minute: '2-digit' }),
             airport: returnFlight.segments[returnFlight.segments.length - 1].arrival.iataCode
           }
         } : undefined
