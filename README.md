@@ -18,7 +18,6 @@ PORT=3001
 AMADEUS_API_KEY=your_amadeus_client_id
 AMADEUS_API_SECRET=your_amadeus_client_secret
 API_MARKETAPI_KEY=your_api_market_key
-GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 ```
 
 ### 3. Development
@@ -49,16 +48,8 @@ npm run dev:frontend
 npm run build
 ```
 
-## Features
-
-- **Travel Itinerary Generation**: AI-powered itinerary creation with OpenAI
-- **Flight Integration**: Real-time flight search and pricing via Amadeus API
-- **Location Detection**: Automatic departure airport detection using geolocation
-- **Google Calendar Export**: Download .ics file and import directly to Google Calendar
-
 ## Notes
 
-- Make sure to get an OpenAI API key from https://platform.openai.com/
+- Make sure to get the API keys for OpenAI, Amadeus, and ApiMarket
 - The frontend uses Vite's proxy to forward `/api` requests to the backend
-- Both frontend and backend have TypeScript strict mode enabled
-- Calendar export generates a standard .ics file compatible with Google Calendar and other calendar applications
+- Calendar export generates standard .ics files compatible with Google Calendar and other calendar applications
