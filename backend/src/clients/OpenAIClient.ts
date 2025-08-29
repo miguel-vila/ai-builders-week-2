@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
+import { ParsedResponse } from "openai/resources/responses/responses";
 import { z } from "zod";
 
 const ItineraryActivity = z.object({
@@ -20,17 +21,21 @@ const ItineraryOutputSchema = z.object({
   ),
 });
 
+type ItineraryOutput = z.infer<typeof ItineraryOutputSchema>;
+
 const City = z.object({
   shortName: z.string().min(1, "City name is required"),
   iata: z.string().min(1, "IATA code is required"),
 });
 
-const TravelDatesAndCities = z.object({
+const TravelDatesAndCitiesSchema = z.object({
   arrivalCity: City,
   arrivalDate: z.string().min(1, "Arrival date is required"),
   returnCity: City,
   returnDate: z.string().min(1, "Return date is required"),
 });
+
+type TravelDatesAndCities = z.infer<typeof TravelDatesAndCitiesSchema>;
 
 export class OpenAIClient {
   private openai: OpenAI;
@@ -40,7 +45,11 @@ export class OpenAIClient {
     this.openai = new OpenAI({ apiKey });
   }
 
-  async parseDatesAndCities(city: string, dates: string, now: Date) {
+  async parseDatesAndCities(
+    city: string,
+    dates: string,
+    now: Date
+  ): Promise<ParsedResponse<TravelDatesAndCities>> {
     const datesPrompt = `You are a travel agent helping users plan their trips. 
        For context, today is ${now.toLocaleDateString()}. 
        First, define the trip dates for a trip to ${city} for the following user-provided dates: ${dates}. 
@@ -52,7 +61,7 @@ export class OpenAIClient {
       model: this.model,
       input: [{ role: "system", content: datesPrompt }],
       text: {
-        format: zodTextFormat(TravelDatesAndCities, "dates"),
+        format: zodTextFormat(TravelDatesAndCitiesSchema, "dates"),
       },
     });
   }
@@ -66,7 +75,7 @@ export class OpenAIClient {
     arrivalAirport: string,
     returnDate: string,
     returnAirport: string
-  ) {
+  ): Promise<ParsedResponse<ItineraryOutput>> {
     const itineraryPrompt = `You are a travel agent helping users plan their trips. 
       Create a travel itinerary for ${city} for ${dates}. 
       For context, today is ${now.toLocaleDateString()}.
