@@ -4,7 +4,6 @@ import dotenv from "dotenv";
 import { z } from "zod";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
-import { PlacesClient } from "@googlemaps/places";
 import Amadeus from "amadeus";
 import fetch from "node-fetch";
 import {
@@ -12,11 +11,6 @@ import {
   FlightSearchParams,
   AmadeusError,
 } from "./types/amadeus";
-
-
-const placesClient = new PlacesClient({
-  apiKey: process.env.GOOGLE_MAPS_API_KEY!,
-});
 
 const amadeus = new Amadeus({
   clientId: process.env.AMADEUS_API_KEY!,
@@ -264,7 +258,9 @@ function createICSContent(data: any): string {
 
   // Add itinerary activity events
   data.itinerary.days.forEach((day: any, dayIndex: number) => {
-    const dayDate = new Date(day.dayDate);
+    // Parse ISO date string as local date to avoid timezone issues
+    const [year, month, dayNum] = day.dayDate.split('-').map(Number);
+    const dayDate = new Date(year, month - 1, dayNum);
     
     // Morning activities (9 AM)
     if (day.morning && day.morning.length > 0) {

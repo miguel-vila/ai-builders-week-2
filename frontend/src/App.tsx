@@ -358,7 +358,7 @@ function App() {
               type="text"
               value={dates}
               onChange={(e) => setDates(e.target.value)}
-              placeholder="e.g., December 15-20, 2024 or 5 days"
+              placeholder="e.g., December 15-20, 5 days in June"
               required
             />
           </div>
