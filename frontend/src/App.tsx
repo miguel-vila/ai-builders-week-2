@@ -307,7 +307,7 @@ function App() {
       
       // Open Google Calendar import page
       setTimeout(() => {
-        window.open('https://calendar.google.com/calendar/r/settings/import-export', '_blank');
+        window.open('https://calendar.google.com/calendar/u/0/r/settings/export', '_blank');
       }, 500);
       
       alert('Calendar file downloaded! Please upload the .ics file to Google Calendar using the opened page.');
@@ -330,7 +330,7 @@ function App() {
           fontSize: "2.5rem",
         }}
       >
-        AI Builders Project
+        Travel Assistant
       </h1>
 
       <div className="card">

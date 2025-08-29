@@ -5,6 +5,7 @@ import { z } from "zod";
 import { AmadeusClient } from "./clients/AmadeusClient";
 import { OpenAIClient } from "./clients/OpenAIClient";
 import { ApiMarketClient } from "./clients/ApiMarketClient";
+import { CalendarGenerator } from "./clients/CalendarGenerator";
 
 // Load environment variables
 dotenv.config();
@@ -19,6 +20,7 @@ const amadeusClient = new AmadeusClient(
 );
 const openaiClient = new OpenAIClient(process.env.OPENAI_API_KEY!);
 const apiMarketClient = new ApiMarketClient(process.env.API_MARKETAPI_KEY!);
+const calendarGenerator = new CalendarGenerator();
 
 // Middleware
 app.use(cors());
@@ -99,153 +101,7 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// Utility functions remain as they are used by other parts of the app
 
-function parseDateTime(date: string, time: string): string {
-  // Convert from UK format (DD/MM/YYYY) to ISO format
-  const [day, month, year] = date.split('/');
-  const [hours, minutes] = time.split(':');
-  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes)).toISOString();
-}
-
-function formatDateForICS(date: Date): string {
-  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-}
-
-function escapeICSText(text: string): string {
-  return text.replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
-}
-
-function createICSContent(data: any): string {
-  const events = [];
-
-  // Add flight events
-  if (data.flights?.outbound) {
-    const flight = data.flights.outbound;
-    const departureDateTime = new Date(parseDateTime(flight.departure.date, flight.departure.time));
-    const arrivalDateTime = new Date(parseDateTime(flight.arrival.date, flight.arrival.time));
-    
-    events.push({
-      uid: `outbound-flight-${Date.now()}@travel-itinerary`,
-      summary: `✈️ Outbound Flight - ${flight.airline}`,
-      description: `Flight to ${data.city}\nAirline: ${flight.airline}\nDuration: ${flight.duration}\nPrice: ${flight.price}`,
-      location: `${flight.departure.airport} → ${flight.arrival.airport}`,
-      dtstart: formatDateForICS(departureDateTime),
-      dtend: formatDateForICS(arrivalDateTime),
-    });
-  }
-
-  if (data.flights?.return) {
-    const flight = data.flights.return;
-    const departureDateTime = new Date(parseDateTime(flight.departure.date, flight.departure.time));
-    const arrivalDateTime = new Date(parseDateTime(flight.arrival.date, flight.arrival.time));
-    
-    events.push({
-      uid: `return-flight-${Date.now()}@travel-itinerary`,
-      summary: `✈️ Return Flight - ${flight.airline}`,
-      description: `Return flight from ${data.city}\nAirline: ${flight.airline}\nDuration: ${flight.duration}\nPrice: ${flight.price}`,
-      location: `${flight.departure.airport} → ${flight.arrival.airport}`,
-      dtstart: formatDateForICS(departureDateTime),
-      dtend: formatDateForICS(arrivalDateTime),
-    });
-  }
-
-  // Add itinerary activity events
-  data.itinerary.days.forEach((day: any, dayIndex: number) => {
-    // Parse ISO date string as local date to avoid timezone issues
-    const [year, month, dayNum] = day.dayDate.split('-').map(Number);
-    const dayDate = new Date(year, month - 1, dayNum);
-    
-    // Morning activities (9 AM)
-    if (day.morning && day.morning.length > 0) {
-      day.morning.forEach((activity: any, index: number) => {
-        const startTime = new Date(dayDate);
-        startTime.setHours(9 + index * activity.durationInHours, 0, 0, 0);
-        const endTime = new Date(startTime);
-        endTime.setHours(startTime.getHours() + activity.durationInHours);
-        
-        events.push({
-          uid: `morning-${dayIndex}-${index}-${Date.now()}@travel-itinerary`,
-          summary: `🌅 ${activity.activity}`,
-          description: `Morning activity in ${activity.location}\nDuration: ${activity.durationInHours} hours`,
-          location: activity.location,
-          dtstart: formatDateForICS(startTime),
-          dtend: formatDateForICS(endTime),
-        });
-      });
-    }
-
-    // Afternoon activities (1 PM)
-    if (day.afternoon && day.afternoon.length > 0) {
-      day.afternoon.forEach((activity: any, index: number) => {
-        const startTime = new Date(dayDate);
-        startTime.setHours(13 + index * activity.durationInHours, 0, 0, 0);
-        const endTime = new Date(startTime);
-        endTime.setHours(startTime.getHours() + activity.durationInHours);
-        
-        events.push({
-          uid: `afternoon-${dayIndex}-${index}-${Date.now()}@travel-itinerary`,
-          summary: `☀️ ${activity.activity}`,
-          description: `Afternoon activity in ${activity.location}\nDuration: ${activity.durationInHours} hours`,
-          location: activity.location,
-          dtstart: formatDateForICS(startTime),
-          dtend: formatDateForICS(endTime),
-        });
-      });
-    }
-
-    // Evening activities (6 PM)
-    if (day.evening && day.evening.length > 0) {
-      day.evening.forEach((activity: any, index: number) => {
-        const startTime = new Date(dayDate);
-        startTime.setHours(18 + index * activity.durationInHours, 0, 0, 0);
-        const endTime = new Date(startTime);
-        endTime.setHours(startTime.getHours() + activity.durationInHours);
-        
-        events.push({
-          uid: `evening-${dayIndex}-${index}-${Date.now()}@travel-itinerary`,
-          summary: `🌙 ${activity.activity}`,
-          description: `Evening activity in ${activity.location}\nDuration: ${activity.durationInHours} hours`,
-          location: activity.location,
-          dtstart: formatDateForICS(startTime),
-          dtend: formatDateForICS(endTime),
-        });
-      });
-    }
-  });
-
-  // Generate ICS content
-  let icsContent = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Travel Itinerary//EN
-CALSCALE:GREGORIAN
-`;
-  
-  events.forEach(event => {
-    icsContent += `BEGIN:VEVENT
-`;
-    icsContent += `UID:${event.uid}
-`;
-    icsContent += `DTSTART:${event.dtstart}
-`;
-    icsContent += `DTEND:${event.dtend}
-`;
-    icsContent += `SUMMARY:${escapeICSText(event.summary)}
-`;
-    icsContent += `DESCRIPTION:${escapeICSText(event.description)}
-`;
-    icsContent += `LOCATION:${escapeICSText(event.location)}
-`;
-    icsContent += `DTSTAMP:${formatDateForICS(new Date())}
-`;
-    icsContent += `END:VEVENT
-`;
-  });
-  
-  icsContent += `END:VCALENDAR`;
-  
-  return icsContent;
-}
 
 app.post("/api/itinerary", async (req, res) => {
   try {
@@ -322,12 +178,13 @@ app.post("/api/export-calendar", async (req, res) => {
   try {
     const data = CalendarExportSchema.parse(req.body);
     
-    // Generate ICS content
-    const icsContent = createICSContent(data);
+    // Generate ICS content using calendar generator
+    const icsContent = calendarGenerator.generateICSContent(data);
+    const filename = calendarGenerator.generateCalendarFilename(data.city);
     
     // Set headers for file download
     res.setHeader('Content-Type', 'text/calendar');
-    res.setHeader('Content-Disposition', `attachment; filename="${data.city.replace(/[^a-zA-Z0-9]/g, '_')}_itinerary.ics"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     
     res.send(icsContent);
   } catch (error) {
