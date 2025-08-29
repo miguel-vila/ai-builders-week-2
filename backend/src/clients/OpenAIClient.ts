@@ -39,7 +39,7 @@ type TravelDatesAndCities = z.infer<typeof TravelDatesAndCitiesSchema>;
 
 export class OpenAIClient {
   private openai: OpenAI;
-  private model = "gpt-5-nano-2025-08-07";
+  private model = "gpt-4o-2024-08-06";
 
   constructor(apiKey: string) {
     this.openai = new OpenAI({ apiKey });
