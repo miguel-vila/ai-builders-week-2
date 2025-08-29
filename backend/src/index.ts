@@ -46,18 +46,6 @@ const City = z.object({
   iata: z.string().min(1, "IATA code is required"),
 });
 
-const ItineraryOutputSchema = z.object({
-  days: z.array(
-    z.object({
-      dayDate: z.string().date(),
-      dayNumber: z.number().int().positive(),
-      morning: z.array(ItineraryActivity).optional(),
-      afternoon: z.array(ItineraryActivity).optional(),
-      evening: z.array(ItineraryActivity).optional(),
-    })
-  ),
-});
-
 const FlightInfo = z.object({
   price: z.string(),
   duration: z.string(),
