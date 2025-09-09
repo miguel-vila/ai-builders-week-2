@@ -1,5 +1,9 @@
 # AI Builders Week 2 Project
 
+## Demo
+
+See a demo [here](https://www.loom.com/share/8bfe285416c44513a002c43a3f94d6dc?sid=fdc1f969-8c72-47a7-9d8b-9f9efba421ad).
+
 ## Setup Instructions
 
 ### 1. Install Dependencies
